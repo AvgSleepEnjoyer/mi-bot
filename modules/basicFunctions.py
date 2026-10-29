@@ -16,9 +16,7 @@ async def on_message(message):
     if message.author == bot.user:
         return
 
-    if message.content == ("Server mc"):
-        await message.channel.send("Ya voy")
-    elif message.content == 'puta':
+    if message.content == 'puta':
         await message.channel.send("Puta tú")
     elif message.content == '99!':
         brooklyn_99_quotes = [
@@ -27,8 +25,7 @@ async def on_message(message):
             'Cool. Cool cool cool cool cool cool cool, no doubt no doubt no doubt no doubt.',
         ]
         await message.channel.send(random.choice(brooklyn_99_quotes))
-    elif message.content == 'raise-exception':
-        raise discord.DiscordException
+    
 
     # --- ESTO es lo que hace funcionar @bot.command ---
     # Como tal esta por si acaso se cambia de logica
@@ -42,6 +39,19 @@ async def on_error(event, *args, **kwargs):
             f.write(f'Unhandled message: {args[0]}\n')
         else:
             f.write(f'Unhandled event {event}: {args}\n')
+
+@bot.event
+async def on_command_error(ctx, error):
+    # Registramos el error en el mismo archivo de log
+    with open('err.log', 'a') as f:
+        f.write(f'Error en comando {ctx.command}: {error}\n')
+
+    if isinstance(error, commands.NotOwner):
+        await ctx.send("🤓 Este comando es solo para el dueño del bot.")
+        return
+    
+    # Aavisar al usuario en el chat
+    await ctx.send(f"Ocurrió un error: {error}")
 
 # Comandos con !, ctx es Context
 @bot.command(name='roll_dice', help='Simulates rolling dice.')
@@ -70,9 +80,9 @@ async def prender_server(ctx):
     stdout, stderr = await proceso.communicate()
     
     if proceso.returncode == 0:
-        await ctx.send("🟢 Servidor de Minecraft iniciado. Espera unos segundos a que cargue el mundo.")
+        await ctx.send("✅ Servidor de Minecraft iniciado. Espera unos segundos a que cargue el mundo.")
     else:
-        await ctx.send(f"🔴 Error al iniciar: {stderr.decode()}")
+        await ctx.send(f"❌ Error al iniciar: {stderr.decode()}")
 
 
 
@@ -97,10 +107,10 @@ async def apagar_server(ctx):
 
     if proceso.returncode != 0:
         # El script falló 
-        await ctx.send(f"🔴 Error al apagar: {error or 'sin detalles'}")
+        await ctx.send(f"❌ Error al apagar: {error or 'sin detalles'}")
 
     elif salida: # Imprime lo mismo que la terminal
-        await ctx.send(f"🟢 {salida}")
+        await ctx.send(f"✅ {salida}")
     else:
         # Caso raro: terminó bien pero no imprimió nada 
-        await ctx.send("🟡 El script terminó sin devolver mensaje.")
+        await ctx.send("❓ El script terminó sin devolver mensaje.")
