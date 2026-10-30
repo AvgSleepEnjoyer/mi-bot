@@ -1,9 +1,10 @@
 import random
 import discord
-import asyncio
-import subprocess
-from discord.ext import commands
+from discord.utils import get
+from discord.ext import commands 
 from .config import bot
+
+
 
 # Mensaje de bot encendido
 @bot.event
@@ -31,30 +32,9 @@ async def on_message(message):
     # Como tal esta por si acaso se cambia de logica
     await bot.process_commands(message)
 
-# Log de errores
-@bot.event
-async def on_error(event, *args, **kwargs):
-    with open('err.log', 'a') as f:
-        if event == 'on_message':
-            f.write(f'Unhandled message: {args[0]}\n')
-        else:
-            f.write(f'Unhandled event {event}: {args}\n')
 
-@bot.event
-async def on_command_error(ctx, error):
-    # Registramos el error en el mismo archivo de log
-    with open('err.log', 'a') as f:
-        f.write(f'Error en comando {ctx.command}: {error}\n')
-
-    if isinstance(error, commands.NotOwner):
-        await ctx.send("🤓 Este comando es solo para el dueño del bot.")
-        return
-    
-    # Aavisar al usuario en el chat
-    await ctx.send(f"Ocurrió un error: {error}")
-
-# Comandos con !, ctx es Context
-@bot.command(name='roll_dice', help='Simulates rolling dice.')
+# Comandos con (, ctx es Context
+@bot.hybrid_command(name='roll_dice', help='Simulates rolling dice.')
 async def roll_dice(ctx, number_of_dice: int, number_of_sides: int):
     dice = [
         str(random.choice(range(1, number_of_sides + 1)))
@@ -62,55 +42,36 @@ async def roll_dice(ctx, number_of_dice: int, number_of_sides: int):
     ]
     await ctx.send(', '.join(dice))
 
-    
-@bot.command(name='prender_server')
+
+@bot.hybrid_command(name='soymod') # Otorgarme rol de moderador en un server con amigos
 @commands.is_owner()
 
-async def prender_server(ctx):
-    # Usamos asyncio.create_subprocess_exec para que sea asíncrono
-    # https://docs.python.org/3/library/asyncio-subprocess.html#asyncio.subprocess.PIPE
-    proceso = await asyncio.create_subprocess_exec(
-        './start_mc.sh',
-        cwd='/home/guillo/mcserver/',
-        stdout=asyncio.subprocess.PIPE,
-        stderr=asyncio.subprocess.PIPE
-    )
+async def darme_rol(ctx):
+    rol = discord.utils.get(ctx.guild.roles, name="Moderadores")
     
-    # Esperamos a que el script termine (solo tarda en crear el tmux, no en arrancar Java)
-    stdout, stderr = await proceso.communicate()
+    if rol is None:
+        await ctx.send("❌ No existe el rol.")
+        return
     
-    if proceso.returncode == 0:
-        await ctx.send("✅ Servidor de Minecraft iniciado. Espera unos segundos a que cargue el mundo.")
-    else:
-        await ctx.send(f"❌ Error al iniciar: {stderr.decode()}")
+    if rol in ctx.author.roles:
+        await ctx.send(f"Ya tienes el rol **{rol.name}**.")
+        return
+    
+    await ctx.author.add_roles(rol)
+    await ctx.send(f"✅ Se te otorgó el rol **{rol.name}**, {ctx.author.mention}.")
 
 
+@bot.hybrid_command(name='join') # Hacer que se una a vc (nomas pq si)
+async def join(ctx):
+    # Verificar que el usuario esté en un canal de voz
+    if ctx.author.voice is None:
+        await ctx.send("Primero entra a un canal de voz.")
+        return
 
-@bot.command(name='apagar_server')
-@commands.is_owner()
+    # Obtener el canal y conectar
+    channel = ctx.author.voice.channel
+    await channel.connect(self_deaf=True, self_mute=True)
 
-async def apagar_server(ctx):
-    # Usamos asyncio.create_subprocess_exec para que sea asíncrono
-    # https://docs.python.org/3/library/asyncio-subprocess.html#asyncio.subprocess.PIPE
-    proceso = await asyncio.create_subprocess_exec(
-        './close_mc.sh',
-        cwd='/home/guillo/mcserver/',
-        stdout=asyncio.subprocess.PIPE,
-        stderr=asyncio.subprocess.PIPE
-    )
-
-    # Esperamos a que el script termine (cerrará la instancia del server de minecraft)
-    stdout, stderr = await proceso.communicate()
-
-    salida = stdout.decode().strip()
-    error = stderr.decode().strip()
-
-    if proceso.returncode != 0:
-        # El script falló 
-        await ctx.send(f"❌ Error al apagar: {error or 'sin detalles'}")
-
-    elif salida: # Imprime lo mismo que la terminal
-        await ctx.send(f"✅ {salida}")
-    else:
-        # Caso raro: terminó bien pero no imprimió nada 
-        await ctx.send("❓ El script terminó sin devolver mensaje.")
+@bot.hybrid_command()
+async def test(ctx):
+    await ctx.send("This is a hybrid command!")
